@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Template Guide — SPKCrane KB</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
+
+  <div class="page-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <a href="index.html" class="sidebar-logo">
+        <span>🏗️</span> SPKCrane KB
+      </a>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Pages</div>
+        <a href="index.html" class="sidebar-link">
+          <i data-lucide="home"></i> หน้าแรก
+        </a>
+        <a href="know-how.html" class="sidebar-link">
+          <i data-lucide="book-open"></i> Know-How
+        </a>
+        <a href="template-guide.html" class="sidebar-link active">
+          <i data-lucide="copy"></i> Template Guide
+        </a>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">On This Page</div>
+        <a href="#project-structure" class="toc-link">Project Structure</a>
+        <a href="#quick-start" class="toc-link">Quick Start (8 Steps)</a>
+        <a href="#customize" class="toc-link">Customize Prompt</a>
+        <a href="#architecture" class="toc-link">Architecture</a>
+        <a href="#limitations" class="toc-link">Known Limitations</a>
+        <a href="#tips" class="toc-link">Tips</a>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main-content">
+      <header class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="mobile-menu-btn" onclick="toggleSidebar()">
+            <i data-lucide="menu" style="width:20px;height:20px;"></i>
+          </button>
+          <span class="topbar-title">Template Quick Start Guide</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn-icon" onclick="toggleDarkMode()" title="Toggle dark mode">
+            <i data-lucide="moon" id="themeIcon" style="width:18px;height:18px;"></i>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <h1><span class="emoji">🧩</span> ADK + LINE Chatbot Template</h1>
+        <p class="subtitle">
+          Template สำหรับสร้าง LINE chatbot ที่เก็บข้อมูลลูกค้า (lead intake) ด้วย Google ADK + LINE Messaging API<br>
+          พร้อม clone ไปใช้กับธุรกิจอื่นได้ทันที — แค่เปลี่ยน prompt ใน <code>intake_agent/agent.py</code>
+        </p>
+
+        <div class="badge-row">
+          <span class="badge">🧩 Template Project</span>
+          <span class="badge">📋 8 Steps</span>
+          <span class="badge">🔧 TODO Placeholders</span>
+          <span class="badge">📂 Ready to Clone</span>
+        </div>
+
+        <!-- ===== Project Structure ===== -->
+        <h2 id="project-structure">📁 Project Structure</h2>
+
+        <pre><code class="language-plaintext">adk-line-chatbot-template/
+├── line_webhook.py          ← LINE webhook server (Flask)
+├── my_pipeline/             ← Root agent (rename ตาม project)
+│   └── agent.py             ← Coordinator — ส่งต่อให้ IntakeAgent
+├── intake_agent/            ← Main conversational agent
+│   └── agent.py             ← ★ ไฟล์หลักที่ต้อง customize ★
+├── tools/
+│   └── line_notify.py       ← ส่ง lead summary ไป LINE group
+├── .env.example             ← Template ตัวแปร environment
+├── .gitignore               ← ป้องกัน .env หลุดเข้า git
+└── requirements.txt         ← Dependencies (pinned versions)</code></pre>
+
+        <div class="callout callout-info">
+          <span class="callout-icon">⭐</span>
+          <div>
+            <strong>ไฟล์หลักที่ต้อง customize คือ <code>intake_agent/agent.py</code></strong> — ไฟล์อื่นๆ ใช้ได้เลยโดยไม่ต้องแก้ (หรือแก้แค่เล็กน้อย)
+          </div>
+        </div>
+
+        <!-- ===== Quick Start ===== -->
+        <h2 id="quick-start">🚀 Quick Start (8 ขั้นตอน)</h2>
+
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <div class="step-title">Clone & Install</div>
+          <div class="step-content">
+            <p>Copy folder template แล้ว install dependencies:</p>
+            <pre><code class="language-bash"># Clone หรือ copy folder นี้
+cd adk-line-chatbot-template
+pip install -r requirements.txt</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <div class="step-title">สร้าง LINE Official Account</div>
+          <div class="step-content">
+            <ol>
+              <li>ไปที่ <a href="https://developers.line.biz/" target="_blank">LINE Developers Console</a></li>
+              <li>สร้าง Provider → สร้าง <strong>Messaging API Channel</strong></li>
+              <li>จดค่า <strong>Channel Secret</strong> และ <strong>Channel Access Token</strong> (long-lived)</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <div class="step-title">สร้าง Gemini API Key</div>
+          <div class="step-content">
+            <ol>
+              <li>ไปที่ <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a></li>
+              <li>สร้าง API Key</li>
+              <li>จดค่า API Key</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">4</div>
+          <div class="step-title">ตั้งค่า Environment Variables</div>
+          <div class="step-content">
+            <pre><code class="language-bash">cp .env.example .env</code></pre>
+            <p>แก้ไข <code>.env</code>:</p>
+            <pre><code class="language-bash">GOOGLE_GENAI_USE_VERTEXAI=FALSE
+GOOGLE_API_KEY=your_gemini_api_key          # ← ใส่ Gemini API key
+CHANNEL_SECRET=your_line_channel_secret     # ← ใส่ LINE Channel Secret
+CHANNEL_ACCESS_TOKEN=your_line_access_token # ← ใส่ LINE Access Token
+LINE_GROUP_ID=your_team_line_group_id       # ← ใส่ LINE Group ID ของทีม</code></pre>
+            <div class="callout callout-info">
+              <span class="callout-icon">💡</span>
+              <div>
+                <strong>หา LINE_GROUP_ID ได้อย่างไร?</strong><br>
+                เชิญ bot เข้า group → ส่งข้อความ → ดู webhook log จะเห็น group ID<br>
+                หรือใช้ LINE Bot Designer / webhook inspection tool
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card" style="border-left: 4px solid var(--accent);">
+          <div class="step-number" style="background:var(--danger);">5</div>
+          <div class="step-title">★ Customize Prompt (ขั้นตอนสำคัญที่สุด) ★</div>
+          <div class="step-content">
+            <p>แก้ไขไฟล์ <code>intake_agent/agent.py</code> — ค้นหา <code># TODO:</code> แล้วเปลี่ยนตามธุรกิจ:</p>
+            <table>
+              <thead>
+                <tr><th>TODO</th><th>ต้องเปลี่ยนอะไร</th><th>ตัวอย่าง</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>Persona</strong></td><td>ชื่อบทบาท + ชื่อธุรกิจ</td><td>"คุณคือแอดมินหญิงของร้านเช่าชุดแต่งงาน"</td></tr>
+                <tr><td><strong>Fields (P1-P4)</strong></td><td>ข้อมูลที่ต้องเก็บ</td><td>วันงาน, สถานที่, ไซส์, งบประมาณ</td></tr>
+                <tr><td><strong>Guardrails</strong></td><td>สิ่งที่ bot ห้ามทำ</td><td>ห้ามให้ส่วนลด, ห้ามรับจอง</td></tr>
+                <tr><td><strong>Pricing</strong></td><td>ราคาอ้างอิง (ถ้ามี)</td><td>ชุด A: 15,000, ชุด B: 25,000</td></tr>
+                <tr><td><strong>Summary format</strong></td><td>รูปแบบสรุปส่ง LINE group</td><td>emoji + labels ตาม fields</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">6</div>
+          <div class="step-title">(Optional) Rename Pipeline Package</div>
+          <div class="step-content">
+            <p>ถ้าต้องการเปลี่ยนชื่อ package:</p>
+            <ol>
+              <li>Rename folder <code>my_pipeline/</code> → <code>your_project_name/</code></li>
+              <li>แก้ import ใน <code>line_webhook.py</code>:</li>
+            </ol>
+            <pre><code class="language-python">from your_project_name.agent import root_agent</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">7</div>
+          <div class="step-title">ทดสอบด้วย ADK Web UI</div>
+          <div class="step-content">
+            <pre><code class="language-bash">adk web --port 8000</code></pre>
+            <p>เปิด <a href="http://localhost:8000" target="_blank">http://localhost:8000</a> → เลือก <strong>my_pipeline</strong> → ทดสอบสนทนา</p>
+            <div class="callout callout-warning">
+              <span class="callout-icon">⚠️</span>
+              <div><strong>หยุด adk web ก่อนขั้นตอนถัดไป</strong> (ใช้ port เดียวกัน)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-number">8</div>
+          <div class="step-title">Run LINE Webhook + ngrok</div>
+          <div class="step-content">
+            <pre><code class="language-bash"># Terminal 1: run webhook server
+python line_webhook.py
+
+# Terminal 2: expose ด้วย ngrok
+ngrok http 8000</code></pre>
+            <p>ตั้งค่าใน LINE Developers Console:</p>
+            <ol>
+              <li>Webhook URL → <code>https://&lt;ngrok-url&gt;/webhook</code></li>
+              <li>เปิด "Use webhook" ✅</li>
+              <li>กด "Verify" ✅</li>
+              <li>ปิด auto-reply ใน LINE Official Account Manager</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- ===== Customize Prompt ===== -->
+        <h2 id="customize">🎨 Customize Prompt (ตัวอย่าง)</h2>
+
+        <p>ตัวอย่าง prompt สำหรับธุรกิจอื่น — ดัดแปลงจาก template:</p>
+
+        <h3>ตัวอย่าง: ร้านเช่าชุดแต่งงาน</h3>
+        <pre><code class="language-plaintext"># Persona
+คุณคือแอดมินหญิงของร้านเช่าชุดแต่งงาน Bridal Dream
+
+# P1 — บังคับ
+1. wedding_date — วันงานแต่ง
+2. venue — สถานที่จัดงาน
+
+# P2 — บังคับ
+3. bride_name — ชื่อเจ้าสาว
+4. contact_number — เบอร์โทร
+
+# P3 — optional
+5. dress_style — สไตล์ชุดที่สนใจ (เช่น A-line, Mermaid)
+6. budget — งบประมาณ
+
+# P4 — optional
+7. source_channel — รู้จักร้านจากไหน
+
+# Summary
+👰 Lead ใหม่ — เช่าชุดแต่งงาน
+━━━━━━━━━━━━━━━━━━
+📅 วันงาน: ...
+📍 สถานที่: ...
+👩 เจ้าสาว: ...
+📞 เบอร์: ...
+👗 สไตล์: ...
+💰 งบ: ...
+📣 รู้จักจาก: ...
+━━━━━━━━━━━━━━━━━━</code></pre>
+
+        <h3>ตัวอย่าง: บริษัทรับทำเว็บไซต์</h3>
+        <pre><code class="language-plaintext"># Persona
+คุณคือที่ปรึกษาโครงการของบริษัท WebCraft
+
+# P1 — บังคับ
+1. project_type — ประเภทเว็บ (เว็บไซต์, e-commerce, landing page)
+2. deadline — ต้องการเสร็จเมื่อไหร่
+
+# P2 — บังคับ
+3. company_name — ชื่อบริษัท
+4. contact — ช่องทางติดต่อ (เบอร์/LINE/email)
+
+# P3 — optional
+5. reference_site — มีเว็บตัวอย่างที่ชอบไหม
+6. budget_range — งบประมาณโดยประมาณ
+
+# P4 — optional
+7. source — รู้จัก WebCraft จากไหน
+
+# Summary
+💻 Lead ใหม่ — รับทำเว็บไซต์
+━━━━━━━━━━━━━━━━━━
+🌐 ประเภท: ...
+📅 Deadline: ...
+🏢 บริษัท: ...
+📞 ติดต่อ: ...
+🔗 Reference: ...
+💰 งบ: ...
+📣 รู้จักจาก: ...
+━━━━━━━━━━━━━━━━━━</code></pre>
+
+        <!-- ===== Architecture ===== -->
+        <h2 id="architecture">🏗️ Architecture</h2>
+
+        <pre><code class="language-plaintext">LINE OA ←→ line_webhook.py ←→ ADK Runner
+                                    │
+                              Root Agent (Coordinator)
+                                    │
+                              IntakeAgent
+                              ├── สนทนากับลูกค้า
+                              ├── เก็บข้อมูลทีละ field
+                              └── เรียก notify_team_line tool
+                                        │
+                                  LINE Group (ทีมงาน)</code></pre>
+
+        <h3>Key Patterns</h3>
+        <div class="card-grid">
+          <div class="card">
+            <div class="card-title">📊 Priority-based Fields</div>
+            <div class="card-desc">P1(บังคับ) → P2(บังคับ) → P3(optional) → P4(optional)<br>ลูกค้าไม่รู้สึกถูกบังคับ ข้อมูลสำคัญได้ครบเสมอ</div>
+          </div>
+          <div class="card">
+            <div class="card-title">🛡️ Duplicate Guard</div>
+            <div class="card-desc"><code>_notified_leads</code> hash set ป้องกันส่ง lead ซ้ำไปยัง LINE group</div>
+          </div>
+          <div class="card">
+            <div class="card-title">🔄 Reply Token Fallback</div>
+            <div class="card-desc">ถ้า reply token หมดอายุ (~30s) → ใช้ push message แทนอัตโนมัติ</div>
+          </div>
+          <div class="card">
+            <div class="card-title">💬 Synthetic Text</div>
+            <div class="card-desc">Image → <code>"[ลูกค้าส่งรูปภาพ]"</code><br>Sticker → <code>"[ลูกค้าส่ง sticker]"</code></div>
+          </div>
+        </div>
+
+        <!-- ===== Known Limitations ===== -->
+        <h2 id="limitations">⚡ Known Limitations</h2>
+
+        <table>
+          <thead>
+            <tr><th>Limitation</th><th>Impact</th><th>Production Fix</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>In-memory sessions</strong></td>
+              <td>Restart = สูญเสีย session</td>
+              <td>ใช้ Redis / Firestore</td>
+            </tr>
+            <tr>
+              <td><strong>In-memory dedup</strong></td>
+              <td>Restart = ส่ง lead ซ้ำได้</td>
+              <td>ใช้ Redis / DB</td>
+            </tr>
+            <tr>
+              <td><strong><code>asyncio.run()</code> in Flask</strong></td>
+              <td>ไม่รองรับ concurrent >2 users</td>
+              <td>ใช้ FastAPI / Quart</td>
+            </tr>
+            <tr>
+              <td><strong><code>print()</code> logging</strong></td>
+              <td>ไม่มี log level</td>
+              <td>ใช้ Python <code>logging</code> module</td>
+            </tr>
+            <tr>
+              <td><strong>Port 8000 conflict</strong></td>
+              <td><code>adk web</code> กับ <code>line_webhook.py</code> ใช้ port เดียวกัน</td>
+              <td>หยุดอันหนึ่งก่อน</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- ===== Tips ===== -->
+        <h2 id="tips">💡 Tips</h2>
+
+        <div class="card-grid" style="grid-template-columns: 1fr;">
+          <div class="card" style="border-left: 4px solid var(--accent);">
+            <div class="card-title">🧪 ทดสอบด้วย <code>adk web</code> ก่อนเสมอ</div>
+            <div class="card-desc">เร็วกว่าทดสอบผ่าน LINE มาก — ไม่ต้อง ngrok, ไม่ต้องรอ webhook</div>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--warning);">
+            <div class="card-title">📝 Prompt สำคัญที่สุด</div>
+            <div class="card-desc">คุณภาพของ bot ขึ้นอยู่กับ prompt ใน <code>intake_agent/agent.py</code> — ใช้เวลากับ prompt ให้มาก</div>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--danger);">
+            <div class="card-title">🤫 "ตอบลูกค้าก่อนเรียก tool"</div>
+            <div class="card-desc">ป้องกัน bot เงียบหลังเก็บ field สุดท้าย — ต้องมีข้อนี้ใน prompt เสมอ</div>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--success);">
+            <div class="card-title">🔄 <code>runner.run()</code> return events</div>
+            <div class="card-desc">ต้อง iterate ALL events ไม่ใช่แค่ <code>is_final_response()</code> — ดูรายละเอียดใน <a href="know-how.html#adk-patterns">Know-How: ADK Patterns</a></div>
+          </div>
+          <div class="card" style="border-left: 4px solid #8b5cf6;">
+            <div class="card-title">🔒 .env ต้องอยู่ใน .gitignore เสมอ</div>
+            <div class="card-desc">ป้องกัน API keys หลุด — template มี <code>.gitignore</code> ให้แล้ว อย่าลบออก</div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    hljs.highlightAll();
+
+    document.querySelectorAll('pre code').forEach(block => {
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'Copy';
+      btn.onclick = () => {
+        navigator.clipboard.writeText(block.textContent).then(() => {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+      };
+      block.parentElement.appendChild(btn);
+    });
+
+    lucide.createIcons();
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebarBackdrop').classList.toggle('show');
+    }
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+      const icon = document.getElementById('themeIcon');
+      const isDark = document.documentElement.classList.contains('dark');
+      icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+      lucide.createIcons();
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.addEventListener('DOMContentLoaded', () => {
+        const icon = document.getElementById('themeIcon');
+        if (icon) { icon.setAttribute('data-lucide', 'sun'); lucide.createIcons(); }
+      });
+    }
+
+    const tocLinks = document.querySelectorAll('.toc-link');
+    const sections = [];
+    tocLinks.forEach(link => {
+      const id = link.getAttribute('href').replace('#', '');
+      const el = document.getElementById(id);
+      if (el) sections.push({ el, link });
+    });
+
+    window.addEventListener('scroll', () => {
+      let current = sections[0];
+      for (const s of sections) {
+        if (window.scrollY >= s.el.offsetTop - 100) current = s;
+      }
+      tocLinks.forEach(l => l.classList.remove('active'));
+      if (current) current.link.classList.add('active');
+    });
+  </script>
+</body>
+</html>

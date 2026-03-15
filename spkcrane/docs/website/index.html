@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPKCrane Knowledge Base</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <div class="page-wrapper">
+    <aside class="sidebar" id="sidebar">
+      <a href="index.html" class="sidebar-logo">
+        <span>🏗️</span> SPKCrane KB
+      </a>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Pages</div>
+        <a href="index.html" class="sidebar-link active">
+          <i data-lucide="home"></i> หน้าแรก
+        </a>
+        <a href="know-how.html" class="sidebar-link">
+          <i data-lucide="book-open"></i> Know-How
+        </a>
+        <a href="template-guide.html" class="sidebar-link">
+          <i data-lucide="copy"></i> Template Guide
+        </a>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Quick Links</div>
+        <a href="know-how.html#architecture" class="sidebar-link">
+          <i data-lucide="git-branch"></i> Architecture
+        </a>
+        <a href="know-how.html#adk-patterns" class="sidebar-link">
+          <i data-lucide="cpu"></i> ADK Patterns
+        </a>
+        <a href="know-how.html#line-api" class="sidebar-link">
+          <i data-lucide="message-circle"></i> LINE API
+        </a>
+        <a href="know-how.html#prompt-engineering" class="sidebar-link">
+          <i data-lucide="sparkles"></i> Prompt Engineering
+        </a>
+        <a href="know-how.html#bugs" class="sidebar-link">
+          <i data-lucide="bug"></i> Bugs & Pitfalls
+        </a>
+        <a href="know-how.html#production" class="sidebar-link">
+          <i data-lucide="rocket"></i> Production Checklist
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main-content">
+      <header class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="mobile-menu-btn" onclick="toggleSidebar()">
+            <i data-lucide="menu" style="width:20px;height:20px;"></i>
+          </button>
+          <span class="topbar-title">SPKCrane Knowledge Base</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn-icon" onclick="toggleDarkMode()" title="Toggle dark mode">
+            <i data-lucide="moon" id="themeIcon" style="width:18px;height:18px;"></i>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <h1><span class="emoji">🏗️</span> SPKCrane Knowledge Base</h1>
+        <p class="subtitle">
+          บทเรียนและ template จากการพัฒนา LINE Chatbot ด้วย Google ADK<br>
+          สำหรับธุรกิจให้เช่าเครนแมงมุม (Spider Crane) — พร้อมนำไปใช้กับ project อื่น
+        </p>
+
+        <div class="badge-row">
+          <span class="badge">🤖 Google ADK</span>
+          <span class="badge">✨ Gemini 2.5 Flash</span>
+          <span class="badge">💬 LINE Messaging API</span>
+          <span class="badge">🐍 Python + Flask</span>
+          <span class="badge">🇹🇭 Thai-first</span>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row">
+          <div class="stat-item">
+            <span class="stat-number">6</span>
+            <span class="stat-label">Know-How Topics</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">7</span>
+            <span class="stat-label">Bugs Documented</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">8</span>
+            <span class="stat-label">Template Steps</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">4</span>
+            <span class="stat-label">Lead Priorities</span>
+          </div>
+        </div>
+
+        <!-- Page Cards -->
+        <h2>📚 เนื้อหา</h2>
+
+        <div class="card-grid">
+          <a href="know-how.html" class="card-link">
+            <div class="card">
+              <div class="card-icon" style="background:#dbeafe;">📖</div>
+              <div class="card-title">Know-How Document</div>
+              <div class="card-desc">
+                สรุปบทเรียนทั้งหมดจาก project SPKCrane — Architecture, ADK Patterns, LINE API,
+                Prompt Engineering, Bugs & Pitfalls, Production Checklist
+              </div>
+            </div>
+          </a>
+
+          <a href="template-guide.html" class="card-link">
+            <div class="card">
+              <div class="card-icon" style="background:#dcfce7;">🧩</div>
+              <div class="card-title">Template Quick Start</div>
+              <div class="card-desc">
+                Template project พร้อม clone — 8 ขั้นตอนจาก install ถึง deploy
+                แค่เปลี่ยน prompt ก็ใช้กับธุรกิจอื่นได้
+              </div>
+            </div>
+          </a>
+        </div>
+
+        <!-- Overview Section -->
+        <h2>🔍 Overview</h2>
+
+        <h3>Architecture</h3>
+        <pre><code>LINE OA ←→ line_webhook.py ←→ ADK Runner
+                                    │
+                              Root Agent (Coordinator)
+                                    │
+                              IntakeAgent
+                              ├── สนทนากับลูกค้า (Thai-first)
+                              ├── เก็บข้อมูล P1→P2→P3→P4
+                              └── เรียก notify_team_line tool
+                                        │
+                                  LINE Group (ทีมงาน)</code></pre>
+
+        <h3>Lead Fields</h3>
+        <table>
+          <thead>
+            <tr><th>Priority</th><th>Fields</th><th>บังคับ?</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>P1</strong></td><td>สถานที่, วันที่</td><td>✅ บังคับ</td></tr>
+            <tr><td><strong>P2</strong></td><td>บริษัท, เบอร์โทร</td><td>✅ บังคับ</td></tr>
+            <tr><td><strong>P3</strong></td><td>น้ำหนัก, ระยะยก, ความสูง</td><td>❌ optional</td></tr>
+            <tr><td><strong>P4</strong></td><td>ช่องทางที่รู้จัก</td><td>❌ optional</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Tech Stack</h3>
+        <table>
+          <thead>
+            <tr><th>Component</th><th>Technology</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>AI Framework</td><td>Google ADK</td><td>Multi-agent orchestration</td></tr>
+            <tr><td>LLM</td><td>Gemini 2.5 Flash</td><td>Thai conversation + field extraction</td></tr>
+            <tr><td>Chat Platform</td><td>LINE Messaging API</td><td>Customer-facing channel</td></tr>
+            <tr><td>Web Server</td><td>Flask</td><td>Webhook handler</td></tr>
+            <tr><td>Notification</td><td>LINE Push API</td><td>Team notification via group chat</td></tr>
+          </tbody>
+        </table>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebarBackdrop').classList.toggle('show');
+    }
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+      const icon = document.getElementById('themeIcon');
+      const isDark = document.documentElement.classList.contains('dark');
+      icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+      lucide.createIcons();
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+
+    // Restore theme
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.addEventListener('DOMContentLoaded', () => {
+        const icon = document.getElementById('themeIcon');
+        if (icon) { icon.setAttribute('data-lucide', 'sun'); lucide.createIcons(); }
+      });
+    }
+  </script>
+</body>
+</html>

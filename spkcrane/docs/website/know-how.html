@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Know-How — SPKCrane KB</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
+
+  <div class="page-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <a href="index.html" class="sidebar-logo">
+        <span>🏗️</span> SPKCrane KB
+      </a>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Pages</div>
+        <a href="index.html" class="sidebar-link">
+          <i data-lucide="home"></i> หน้าแรก
+        </a>
+        <a href="know-how.html" class="sidebar-link active">
+          <i data-lucide="book-open"></i> Know-How
+        </a>
+        <a href="template-guide.html" class="sidebar-link">
+          <i data-lucide="copy"></i> Template Guide
+        </a>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">On This Page</div>
+        <a href="#architecture" class="toc-link">1. Architecture Decisions</a>
+        <a href="#adk-patterns" class="toc-link">2. Google ADK Patterns</a>
+        <a href="#line-api" class="toc-link">3. LINE API Patterns</a>
+        <a href="#prompt-engineering" class="toc-link">4. Prompt Engineering</a>
+        <a href="#bugs" class="toc-link">5. Bugs & Pitfalls</a>
+        <a href="#production" class="toc-link">6. Production Checklist</a>
+        <a href="#quick-ref" class="toc-link">Quick Reference</a>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main-content">
+      <header class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="mobile-menu-btn" onclick="toggleSidebar()">
+            <i data-lucide="menu" style="width:20px;height:20px;"></i>
+          </button>
+          <span class="topbar-title">Know-How Document</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn-icon" onclick="toggleDarkMode()" title="Toggle dark mode">
+            <i data-lucide="moon" id="themeIcon" style="width:18px;height:18px;"></i>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <h1><span class="emoji">📖</span> Know-How: สร้าง LINE Chatbot ด้วย Google ADK</h1>
+        <p class="subtitle">
+          บทเรียนทั้งหมดจากการพัฒนา SPKCrane Lead-Intake Chatbot — สรุปไว้เพื่ออ้างอิงใน project หน้า
+        </p>
+
+        <div class="badge-row">
+          <span class="badge">📦 SPKCrane Project</span>
+          <span class="badge">🤖 Google ADK + Gemini 2.5 Flash</span>
+          <span class="badge">💬 LINE Messaging API + Flask</span>
+          <span class="badge">🇹🇭 Thai-first</span>
+        </div>
+
+        <!-- ===== Section 1: Architecture ===== -->
+        <h2 id="architecture">1. Architecture Decisions</h2>
+
+        <h3>ทำไมใช้ Root Agent → IntakeAgent (ไม่ใช้ single agent)</h3>
+        <p>Google ADK มี convention ที่ต้องมี <code>root_agent</code> ใน package หลัก — ADK Web UI และ <code>adk web</code> ต้องหา <code>root_agent</code> เป็น entry point</p>
+
+        <pre><code class="language-plaintext">Root Agent (CraneLeadCoordinator)
+  └── IntakeAgent   ← ทำงานจริงทั้งหมด</code></pre>
+
+        <p>แม้ว่าตอนนี้มี sub_agent ตัวเดียว แต่โครงสร้างนี้:</p>
+        <ul>
+          <li><strong>รองรับ expansion</strong> — เพิ่ม agent ใหม่ได้ง่าย (เช่น QuotationAgent, FollowUpAgent)</li>
+          <li><strong>ตาม ADK convention</strong> — <code>adk web</code> ค้นหา <code>root_agent</code> ใน package level</li>
+        </ul>
+
+        <h3>ทำไม HandoffAgent ถูก disable</h3>
+        <p>ตอนแรกออกแบบให้ IntakeAgent เก็บข้อมูล → ส่งต่อให้ HandoffAgent → HandoffAgent เรียก <code>notify_team_line</code></p>
+
+        <div class="callout callout-warning">
+          <span class="callout-icon">⚠️</span>
+          <div>
+            <strong>ปัญหาที่เจอ:</strong>
+            <ul style="margin-top:8px;margin-bottom:0;">
+              <li><strong>Duplicate notifications</strong> — ทั้ง IntakeAgent และ HandoffAgent เรียก tool ซ้ำ</li>
+              <li><strong>Routing ผิด</strong> — Root Agent บางครั้ง route ไป HandoffAgent ก่อนเก็บข้อมูลครบ</li>
+              <li><strong>ความซับซ้อนที่ไม่จำเป็น</strong> — สำหรับ lead intake ง่ายๆ ไม่จำเป็นต้องมี 2 agents</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout callout-success">
+          <span class="callout-icon">✅</span>
+          <div>
+            <strong>แก้โดย:</strong> ให้ IntakeAgent เรียก <code>notify_team_line</code> tool ตรงเลย + ลบ HandoffAgent ออกจาก <code>sub_agents</code> list (เก็บไฟล์ไว้เป็น backup)
+          </div>
+        </div>
+
+        <h3>File Structure แบบ ADK Standard</h3>
+        <pre><code class="language-plaintext">spkcrane/                          ← project root
+├── crane_lead_pipeline/           ← "pipeline" package — ADK หา root_agent ที่นี่
+│   ├── __init__.py                ← from . import agent
+│   └── agent.py                   ← root_agent = Agent(...)
+├── intake_agent/                  ← sub-agent package
+│   ├── __init__.py
+│   └── agent.py                   ← intake_agent = Agent(...)
+├── tools/                         ← shared tools
+│   └── line_notify.py             ← notify_team_line function
+├── line_webhook.py                ← Flask webhook server (ไม่ใช่ส่วนของ ADK)
+└── .env                           ← API keys (gitignored)</code></pre>
+
+        <p><strong>สำคัญ:</strong> ชื่อ package ที่ <code>adk web</code> ใช้คือ folder ที่มี <code>agent.py</code> ที่ export <code>root_agent</code> — เมื่อรัน <code>adk web</code> dropdown จะแสดง <code>crane_lead_pipeline</code></p>
+
+        <!-- ===== Section 2: ADK Patterns ===== -->
+        <h2 id="adk-patterns">2. Google ADK Patterns</h2>
+
+        <h3>Setup Runner + Session</h3>
+        <pre><code class="language-python">from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai.types import Content, Part
+
+APP_NAME = "my_app"
+session_service = InMemorySessionService()
+
+runner = Runner(
+    agent=root_agent,
+    app_name=APP_NAME,
+    session_service=session_service,
+)</code></pre>
+
+        <h3>Session Management</h3>
+        <p>ADK ใช้ session เก็บ conversation history — ต้อง map LINE user_id → ADK session_id</p>
+        <pre><code class="language-python">user_sessions = {}  # LINE user_id → ADK session_id
+
+def get_agent_response(user_message, user_id):
+    if user_id not in user_sessions:
+        session = asyncio.run(
+            session_service.create_session(app_name=APP_NAME, user_id=user_id)
+        )
+        user_sessions[user_id] = session.id
+
+    session_id = user_sessions[user_id]
+    content = Content(role="user", parts=[Part(text=user_message)])
+    events = runner.run(user_id=user_id, session_id=session_id, new_message=content)
+    # ... process events</code></pre>
+
+        <div class="callout callout-info">
+          <span class="callout-icon">ℹ️</span>
+          <div>
+            <strong>ข้อจำกัด:</strong> <code>InMemorySessionService</code> หายเมื่อ restart server<br>
+            <strong>Production fix:</strong> ใช้ persistent session store (Redis, Firestore, etc.)
+          </div>
+        </div>
+
+        <h3>⚠️ Event Processing — Gotcha สำคัญที่สุด</h3>
+        <p><code>runner.run()</code> return <strong>generator ของ events</strong> — แต่ละ event อาจมี:</p>
+        <ul>
+          <li><strong>Text part</strong> — ข้อความตอบกลับ</li>
+          <li><strong>Function call part</strong> — agent เรียก tool (เช่น <code>notify_team_line</code>)</li>
+          <li><strong>ทั้งสองแบบ</strong> — ในบาง event text + function_call อยู่ด้วยกัน</li>
+        </ul>
+
+        <p><strong>❌ วิธีที่ผิด (crash ได้):</strong></p>
+        <pre><code class="language-python"># อันตราย! ถ้า event มี function_call ไม่ใช่ text จะ crash
+for event in events:
+    if event.content and event.content.parts:
+        return event.content.parts[0].text  # TypeError!</code></pre>
+
+        <p><strong>✅ วิธีที่ถูกต้อง:</strong></p>
+        <pre><code class="language-python">last_text = None
+for event in events:
+    if event.content and event.content.parts:
+        for part in event.content.parts:
+            if part.text:
+                last_text = part.text
+
+return last_text or "ขออภัยค่ะ ระบบขัดข้อง"</code></pre>
+
+        <div class="callout callout-warning">
+          <span class="callout-icon">⚠️</span>
+          <div>
+            <strong>ทำไมต้อง iterate ALL events:</strong>
+            <ol style="margin-top:8px;margin-bottom:0;">
+              <li>Agent ส่ง text ก่อน (ตอบลูกค้า)</li>
+              <li>Agent ส่ง function_call (เรียก tool)</li>
+              <li>Tool ทำงาน → return result</li>
+              <li>Agent อาจส่ง text อีกครั้ง (หลัง tool ทำงานเสร็จ)</li>
+            </ol>
+            <p style="margin-top:8px;margin-bottom:0;">ถ้าหยุดที่ event แรก → อาจได้แค่ function_call → bot เงียบ</p>
+          </div>
+        </div>
+
+        <h3>Agent Definition</h3>
+        <pre><code class="language-python">intake_agent = Agent(
+    name="IntakeAgent",
+    model="gemini-2.5-flash",
+    description="...",          # ใช้ให้ Root Agent ตัดสินใจ routing
+    output_key="collected_lead", # เก็บผลลัพธ์ใน session state
+    instruction="...",          # prompt หลัก (ดูหัวข้อ 4)
+    tools=[notify_team_line],   # tools ที่ agent เรียกได้
+)</code></pre>
+
+        <ul>
+          <li><strong><code>description</code></strong> — Root Agent อ่านค่านี้เพื่อตัดสินใจว่าจะ route ไป agent ไหน</li>
+          <li><strong><code>output_key</code></strong> — เก็บผลลัพธ์ใน session state ด้วย key นี้ (ใช้ส่งต่อระหว่าง agents)</li>
+          <li><strong><code>instruction</code></strong> — prompt ที่กำหนดพฤติกรรมทั้งหมดของ agent</li>
+        </ul>
+
+        <h3>Transfer Between Agents</h3>
+        <p>ADK สร้าง <code>transfer_to_agent</code> tool ให้อัตโนมัติเมื่อ Root Agent มี sub_agents — Root Agent เรียก <code>transfer_to_agent("IntakeAgent")</code> → ADK route ข้อความไป IntakeAgent</p>
+        <p>ไม่ต้องเขียน transfer logic เอง — แค่ใส่ instruction ให้ Root รู้ว่าต้องส่งต่อเมื่อไหร่</p>
+
+        <!-- ===== Section 3: LINE API ===== -->
+        <h2 id="line-api">3. LINE Messaging API Patterns</h2>
+
+        <h3>Webhook Setup (Flask + line-bot-sdk v3)</h3>
+        <pre><code class="language-python">from linebot.v3 import WebhookHandler
+from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, ReplyMessageRequest, TextMessage
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, ImageMessageContent, StickerMessageContent
+
+configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(CHANNEL_SECRET)
+messaging_api = MessagingApi(ApiClient(configuration))
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    signature = request.headers.get("X-Line-Signature", "")
+    body = request.get_data(as_text=True)
+    handler.handle(body, signature)
+    return "OK"
+
+@handler.add(MessageEvent, message=TextMessageContent)
+def handle_text(event):
+    # process event...</code></pre>
+
+        <div class="callout callout-info">
+          <span class="callout-icon">ℹ️</span>
+          <div>
+            <strong>สำคัญ:</strong> ใช้ <code>line-bot-sdk</code> v3 (ไม่ใช่ v2) — import path ต่างกัน:
+            <ul style="margin-top:8px;margin-bottom:0;">
+              <li>v3: <code>from linebot.v3.messaging import ...</code></li>
+              <li>v2: <code>from linebot import LineBotApi</code> (deprecated)</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3>Reply Token Expiry → Push Fallback</h3>
+        <p>LINE reply token หมดอายุภายใน ~30 วินาที — ถ้า agent ใช้เวลาคิดนานหรือเรียก tool หลายตัว token อาจหมดอายุ</p>
+        <pre><code class="language-python">def _handle_event(event, agent_text, label, fallback):
+    line_user_id = event.source.user_id
+    try:
+        reply_text = get_agent_response(agent_text, line_user_id)
+    except Exception:
+        reply_text = fallback
+
+    try:
+        messaging_api.reply_message(ReplyMessageRequest(
+            reply_token=event.reply_token,
+            messages=[TextMessage(text=reply_text)],
+        ))
+    except Exception:
+        # Reply token expired → fallback to push message
+        push_message(line_user_id, reply_text)</code></pre>
+
+        <p><strong>Push message</strong> ไม่ต้องใช้ reply token แต่มี quota limit (free plan = 500 msg/month)</p>
+
+        <h3>Loading Animation</h3>
+        <p>แสดง "typing..." ระหว่าง agent กำลังคิด — ทำให้ user รู้ว่า bot ยังทำงานอยู่</p>
+        <pre><code class="language-python">def show_loading_animation(chat_id, seconds=20):
+    requests.post(
+        "https://api.line.me/v2/bot/chat/loading/start",
+        headers={"Authorization": f"Bearer {CHANNEL_ACCESS_TOKEN}", ...},
+        json={"chatId": chat_id, "loadingSeconds": seconds},
+    )</code></pre>
+
+        <ul>
+          <li><strong>ข้อจำกัด:</strong> ใช้ได้เฉพาะ 1:1 chat (ไม่ใช้ใน group/room)</li>
+          <li><strong>ค่า seconds:</strong> 5-60 วินาที (จะหยุดเองเมื่อ bot ส่งข้อความ)</li>
+        </ul>
+
+        <h3>Image/Sticker → Synthetic Text</h3>
+        <p>LINE ส่ง image/sticker เป็น event type ต่างจาก text — ADK agent รับได้แค่ text<br>
+        <strong>วิธีแก้:</strong> แปลงเป็น "synthetic text" แล้วส่งเข้า agent</p>
+
+        <pre><code class="language-python">@handler.add(MessageEvent, message=ImageMessageContent)
+def handle_image(event):
+    _handle_event(event, agent_text="[ลูกค้าส่งรูปภาพ]", ...)
+
+@handler.add(MessageEvent, message=StickerMessageContent)
+def handle_sticker(event):
+    _handle_event(event, agent_text="[ลูกค้าส่ง sticker]", ...)</code></pre>
+
+        <p>แล้วใน agent prompt กำหนดว่า:</p>
+        <ul>
+          <li><code>"[ลูกค้าส่งรูปภาพ]"</code> → ตอบ "ขอบคุณสำหรับภาพค่ะ" + ถามคำถามเดิมซ้ำ</li>
+          <li><code>"[ลูกค้าส่ง sticker]"</code> → ตอบ "ขอบคุณค่ะ" + ถามคำถามเดิมซ้ำ</li>
+          <li><strong>ห้ามตีความ</strong> sticker/image เป็นคำตอบของ field</li>
+        </ul>
+
+        <h3>DRY Pattern สำหรับหลาย Message Type</h3>
+        <p>แทนที่จะเขียน handler ซ้ำ 3 ตัว ใช้ helper function — แต่ละ handler เหลือแค่ 5 บรรทัด:</p>
+        <pre><code class="language-python">def _handle_event(event, agent_text: str, label: str, fallback: str):
+    """Common handler: send agent_text to ADK, reply to LINE."""
+    line_user_id = event.source.user_id
+    show_loading_animation(line_user_id)
+    reply_text = get_agent_response(agent_text, line_user_id)
+    try:
+        messaging_api.reply_message(...)
+    except:
+        push_message(line_user_id, reply_text)
+
+@handler.add(MessageEvent, message=TextMessageContent)
+def handle_text(event):
+    _handle_event(event, agent_text=event.message.text, label=event.message.text, fallback="...")
+
+@handler.add(MessageEvent, message=ImageMessageContent)
+def handle_image(event):
+    _handle_event(event, agent_text="[ลูกค้าส่งรูปภาพ]", label="[image]", fallback="...")</code></pre>
+
+        <!-- ===== Section 4: Prompt Engineering ===== -->
+        <h2 id="prompt-engineering">4. Prompt Engineering Lessons (Thai Chatbot)</h2>
+
+        <h3>Priority-Based Field Collection</h3>
+        <p>แบ่ง fields เป็น 4 ระดับความสำคัญ:</p>
+        <table>
+          <thead>
+            <tr><th>Priority</th><th>บังคับ?</th><th>พฤติกรรมเมื่อลูกค้าตอบ "ไม่ทราบ"</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>P1</strong></td><td>✅ บังคับ</td><td>ถามซ้ำ 1 ครั้งพร้อมตัวอย่าง ห้ามข้าม</td></tr>
+            <tr><td><strong>P2</strong></td><td>✅ บังคับ</td><td>ถามซ้ำ 1 ครั้งพร้อมตัวอย่าง ห้ามข้าม</td></tr>
+            <tr><td><strong>P3</strong></td><td>❌ optional</td><td>บันทึก "-" แล้วข้ามไปข้อถัดไปทันที</td></tr>
+            <tr><td><strong>P4</strong></td><td>❌ optional</td><td>บันทึก "-" แล้วข้ามไปข้อถัดไปทันที</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Prompt: "ตอบลูกค้าก่อนเรียก Tool"</h3>
+        <p><strong>ปัญหา:</strong> เมื่อ agent เก็บ field สุดท้ายครบ → เรียก <code>notify_team_line</code> → แต่ไม่ส่ง text กลับลูกค้า → bot เงียบ</p>
+
+        <pre><code class="language-plaintext">เมื่อเก็บข้อมูลครบทุกรายการ:
+1. ตอบลูกค้าก่อนเลยว่า "ขอบคุณสำหรับข้อมูลค่ะ เดี๋ยวแอดมินเช็คข้อมูลให้นะคะ 🙏"
+2. จากนั้นจัดรูปแบบข้อความสรุป...
+3. เรียกใช้ tool notify_team_line
+
+สำคัญมาก: ต้องตอบลูกค้าก่อนเรียก tool เสมอ ห้ามเรียก tool โดยไม่ตอบลูกค้า</code></pre>
+
+        <div class="callout callout-info">
+          <span class="callout-icon">💡</span>
+          <div><strong>เคล็ดลับ:</strong> เน้นย้ำ 2 จุดในพร้อมท์ — ทั้งตรงขั้นตอน (ข้อ 1 ก่อน ข้อ 3) และย่อหน้าสุดท้าย ("สำคัญมาก")</div>
+        </div>
+
+        <h3>Persona Consistency</h3>
+        <pre><code class="language-plaintext">สไตล์การตอบ:
+- ตอบสั้น กระชับ แต่ละข้อความไม่เกิน 50 ตัวอักษรถ้าเป็นไปได้
+- ใช้คำลงท้ายว่า "ค่ะ" หรือ "คะ" เสมอ ห้ามใช้ "ครับ"
+- ไม่เกริ่นยาว ไม่อธิบายเกินจำเป็น ตรงประเด็น
+- สุภาพแบบแอดมินมืออาชีพ</code></pre>
+
+        <p><strong>ทำไมต้องชัดเจนขนาดนี้:</strong></p>
+        <ul>
+          <li>Gemini มักตอบยาว → ต้องบอก "ไม่เกิน 50 ตัวอักษร"</li>
+          <li>Gemini สลับ ค่ะ/ครับ ได้ → ต้องบอก "ห้ามใช้ ครับ"</li>
+          <li>ถ้าไม่ระบุ persona → bot จะตอบแบบ generic AI ไม่เหมือนแอดมินจริง</li>
+        </ul>
+
+        <h3>Guardrails Pattern</h3>
+        <p>กำหนด "สิ่งที่ห้ามทำ" ชัดเจน — ป้องกัน LLM hallucinate หรือตอบนอกขอบเขต</p>
+        <pre><code class="language-plaintext">สิ่งที่ห้ามทำ:
+- ห้ามให้ราคาสุดท้ายหรือใบเสนอราคา
+- ห้ามแนะนำรุ่นเครนหรือยี่ห้อเครน
+- ห้ามวิเคราะห์รูปภาพ
+- ห้ามตอบคำถามนอกเหนือจากการรับข้อมูลเช่าเครน
+- ห้ามเริ่มเก็บข้อมูลใหม่ตั้งแต่ต้น</code></pre>
+
+        <p><strong>เคล็ดลับ:</strong></p>
+        <ul>
+          <li>ใช้ "ห้าม" แทน "ไม่ควร" — LLM เข้าใจ negative constraint ชัดกว่า</li>
+          <li>ให้ทางออกด้วย — "ห้ามแนะนำรุ่น ถ้าลูกค้าถาม ให้ตอบว่า 'ทีมงานจะแนะนำรุ่นที่เหมาะสมให้ค่ะ'"</li>
+        </ul>
+
+        <h3>Edge Case Handling</h3>
+        <p><strong>Image/Sticker ระหว่าง intake:</strong></p>
+        <pre><code class="language-plaintext">- ถ้าลูกค้าส่งรูป → ตอบ "ขอบคุณสำหรับภาพค่ะ" แล้วถามคำถามเดิมซ้ำ (ห้ามข้ามคำถาม)
+- ถ้าลูกค้าส่ง sticker → ตอบ "ขอบคุณค่ะ" แล้วถามคำถามเดิมซ้ำ (ห้ามข้ามคำถาม)
+- ห้ามตีความ sticker/รูปภาพเป็นข้อมูล lead</code></pre>
+
+        <p><strong>"ไม่ทราบ" + Follow-up question:</strong></p>
+        <pre><code class="language-plaintext">ถ้าลูกค้าตอบ "ไม่ทราบค่ะ เดี๋ยวถามหน้างานให้ก่อนได้ไหมคะ"
+→ ตอบ "ได้เลยค่ะ" แล้วถามข้อถัดไปทันทีในข้อความเดียวกัน</code></pre>
+
+        <p><strong>ราคากลาง intake flow:</strong></p>
+        <pre><code class="language-plaintext">ถ้าลูกค้าถามเรื่องราคา → ให้ราคาอ้างอิงสั้นๆ → แล้วถามคำถามถัดไปต่อทันที
+(ไม่หยุด flow)</code></pre>
+
+        <h3>Prompt Contradiction — สิ่งที่ต้องระวัง</h3>
+
+        <div class="callout callout-warning">
+          <span class="callout-icon">⚠️</span>
+          <div>
+            <strong>ปัญหา:</strong> Prompt มีกฎ 2 ข้อที่ขัดแย้งกัน:
+            <ul style="margin-top:8px;margin-bottom:0;">
+              <li>"ถ้าถามซ้ำแล้วยังไม่ได้คำตอบ → บันทึก '-' แล้วข้าม" (ใช้กับทุก field)</li>
+              <li>"P1/P2 ห้ามข้าม" (ใช้เฉพาะ P1/P2)</li>
+            </ul>
+            <p style="margin-top:8px;margin-bottom:0;">LLM จะ pick กฎที่เห็นก่อน (หรือกฎที่ชัดกว่า) → พฤติกรรมไม่คงที่</p>
+          </div>
+        </div>
+
+        <p><strong>วิธีแก้:</strong> รวมเป็นกฎเดียวที่ครอบคลุมทุกกรณี:</p>
+        <pre><code class="language-plaintext">ถ้าถามซ้ำแล้วยังไม่ได้คำตอบ: 
+  P1/P2 → บันทึกสิ่งที่ลูกค้าตอบมาแล้วไปข้อถัดไป
+  P3/P4 → บันทึก "-" แล้วข้ามทันที</code></pre>
+
+        <!-- ===== Section 5: Bugs ===== -->
+        <h2 id="bugs">5. Bugs & Pitfalls ที่เจอ + วิธีแก้</h2>
+
+        <div class="bug-card">
+          <div class="bug-card-title">🐛 Bug 1: Bot เงียบเมื่อตอบ field สุดท้าย</div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">อาการ</span>
+            <span class="bug-card-value">ลูกค้าส่ง field สุดท้าย → bot ไม่ตอบ → ต้องส่งอีกข้อความถึงจะเห็นคำตอบ</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Root Cause</span>
+            <span class="bug-card-value">Agent เรียก <code>notify_team_line</code> tool แต่ไม่สร้าง text response ก่อน → event loop จับได้แค่ function_call</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Fix</span>
+            <span class="bug-card-value">Prompt: "ตอบลูกค้าก่อนเรียก tool เสมอ" + Code: iterate ALL events เก็บ <code>last_text</code></span>
+          </div>
+        </div>
+
+        <div class="bug-card">
+          <div class="bug-card-title">🐛 Bug 2: <code>parts[0].text</code> crash เป็น TypeError</div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">อาการ</span>
+            <span class="bug-card-value"><code>TypeError: 'NoneType' object is not subscriptable</code></span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Root Cause</span>
+            <span class="bug-card-value"><code>event.content.parts[0]</code> เป็น function_call part ไม่มี <code>.text</code></span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Fix</span>
+            <span class="bug-card-value">Loop through all parts: <code>for part in event.content.parts: if part.text: ...</code></span>
+          </div>
+        </div>
+
+        <div class="bug-card">
+          <div class="bug-card-title">🐛 Bug 3: Sticker/Image ข้าม required field</div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">อาการ</span>
+            <span class="bug-card-value">ลูกค้าส่ง sticker ตอนกำลังถาม "สถานที่" → bot ข้ามไปถาม "วันที่"</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Root Cause</span>
+            <span class="bug-card-value">Prompt บอก "ตอบขอบคุณแล้วถามข้อถัดไป" → agent เข้าใจว่าต้องข้ามไป field ใหม่</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Fix</span>
+            <span class="bug-card-value">เปลี่ยนเป็น "ถามคำถาม<strong>เดิม</strong>ที่กำลังถามอยู่ซ้ำ <strong>ห้ามข้าม</strong>คำถาม"</span>
+          </div>
+        </div>
+
+        <div class="bug-card">
+          <div class="bug-card-title">🐛 Bug 4: "ไม่ทราบ" ข้าม P1/P2</div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">อาการ</span>
+            <span class="bug-card-value">ลูกค้าตอบ "ไม่ทราบ" กับ required field → bot ข้ามไป field ถัดไป</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Root Cause</span>
+            <span class="bug-card-value">Prompt skip rule เขียนแบบ generic ใช้กับทุก field</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Fix</span>
+            <span class="bug-card-value">แยกกฎ: P1/P2 re-ask + ตัวอย่าง, P3/P4 skip ทันที</span>
+          </div>
+        </div>
+
+        <div class="bug-card">
+          <div class="bug-card-title">🐛 Bug 5: Duplicate LINE notification</div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">อาการ</span>
+            <span class="bug-card-value">ทีมได้ lead เดียวกัน 2 ครั้งใน LINE group</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Root Cause</span>
+            <span class="bug-card-value">Agent เรียก <code>notify_team_line</code> tool ซ้ำ (retry หรือ HandoffAgent เรียกซ้ำ)</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Fix</span>
+            <span class="bug-card-value">เพิ่ม <code>_notified_leads</code> hash set guard ใน <code>notify_team_line</code> function</span>
+          </div>
+        </div>
+
+        <div class="bug-card">
+          <div class="bug-card-title">🐛 Bug 6: API keys หลุดเข้า git</div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">อาการ</span>
+            <span class="bug-card-value"><code>.env</code> ที่มี real API keys ถูก commit</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Root Cause</span>
+            <span class="bug-card-value">ไม่มี <code>.gitignore</code></span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Fix</span>
+            <span class="bug-card-value">สร้าง <code>.gitignore</code> ที่ block <code>.env</code> + สร้าง <code>.env.example</code> สำหรับ template</span>
+          </div>
+        </div>
+
+        <div class="bug-card">
+          <div class="bug-card-title">🐛 Bug 7: HandoffAgent ถูก route ผิด</div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">อาการ</span>
+            <span class="bug-card-value">บางครั้ง Root Agent ส่งข้อความไป HandoffAgent แทน IntakeAgent</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Root Cause</span>
+            <span class="bug-card-value">HandoffAgent ยังอยู่ใน <code>sub_agents</code> list → Root Agent มี 2 ตัวเลือก routing</span>
+          </div>
+          <div class="bug-card-row">
+            <span class="bug-card-label">Fix</span>
+            <span class="bug-card-value">ลบ HandoffAgent ออกจาก <code>sub_agents</code> → Root Agent มีทางเลือกเดียว</span>
+          </div>
+        </div>
+
+        <!-- ===== Section 6: Production Checklist ===== -->
+        <h2 id="production">6. Production Checklist</h2>
+        <p>สิ่งที่ต้องเปลี่ยนก่อน deploy จริง:</p>
+
+        <h3>Must-Have</h3>
+        <ul class="checklist">
+          <li>
+            <input type="checkbox">
+            <div><strong>Persistent sessions</strong> — เปลี่ยน <code>InMemorySessionService</code> → Redis / Firestore<br>
+            <small style="color:var(--text-muted);">restart server = สูญเสีย conversation history ทั้งหมด</small></div>
+          </li>
+          <li>
+            <input type="checkbox">
+            <div><strong>Persistent dedup</strong> — เปลี่ยน <code>_notified_leads</code> in-memory set → Redis / DB<br>
+            <small style="color:var(--text-muted);">restart = dedup guard หาย → ส่ง lead ซ้ำได้</small></div>
+          </li>
+          <li>
+            <input type="checkbox">
+            <div><strong>Async framework</strong> — เปลี่ยน Flask + <code>asyncio.run()</code> → FastAPI / Quart<br>
+            <small style="color:var(--text-muted);">asyncio.run() สร้าง event loop ใหม่ทุกครั้ง — ไม่รองรับ concurrent >2-3 users</small></div>
+          </li>
+          <li>
+            <input type="checkbox">
+            <div><strong>Proper logging</strong> — เปลี่ยน <code>print()</code> → Python <code>logging</code> module<br>
+            <small style="color:var(--text-muted);">ต้องมี log level: DEBUG, INFO, WARNING, ERROR</small></div>
+          </li>
+        </ul>
+
+        <h3>Nice-to-Have</h3>
+        <ul class="checklist">
+          <li>
+            <input type="checkbox">
+            <div><strong>Catch-all message handler</strong> — เพิ่ม handler สำหรับ video/audio/file/location<br>
+            <small style="color:var(--text-muted);">ตอนนี้ bot เงียบเมื่อได้ message type ที่ไม่รองรับ</small></div>
+          </li>
+          <li>
+            <input type="checkbox">
+            <div><strong>Error monitoring</strong> — เพิ่ม Sentry / Cloud Logging<br>
+            <small style="color:var(--text-muted);">ตอนนี้ error แค่ print ไม่มี alert</small></div>
+          </li>
+          <li>
+            <input type="checkbox">
+            <div><strong>Rate limiting</strong> — ป้องกัน bot ถูก spam<br>
+            <small style="color:var(--text-muted);">LINE มี rate limit อยู่แล้ว แต่ agent call Gemini API ซึ่งมี quota</small></div>
+          </li>
+          <li>
+            <input type="checkbox" checked disabled>
+            <div><strong>Webhook signature verification</strong> — ทำอยู่แล้ว ✅ (ผ่าน <code>WebhookHandler</code>)</div>
+          </li>
+          <li>
+            <input type="checkbox" checked disabled>
+            <div><strong>Health check endpoint</strong> — ทำอยู่แล้ว ✅ (GET <code>/</code> return status)</div>
+          </li>
+          <li>
+            <input type="checkbox">
+            <div><strong>Lead storage</strong> — เก็บ lead ลง database ด้วย<br>
+            <small style="color:var(--text-muted);">ตอนนี้มีแค่ใน LINE group message และ console logs</small></div>
+          </li>
+        </ul>
+
+        <!-- ===== Quick Reference ===== -->
+        <h2 id="quick-ref">Quick Reference</h2>
+
+        <h3>Environment Variables</h3>
+        <table>
+          <thead>
+            <tr><th>Variable</th><th>ใช้ทำอะไร</th><th>หาจากไหน</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>GOOGLE_API_KEY</code></td><td>Gemini API</td><td><a href="https://aistudio.google.com/apikey" target="_blank">AI Studio</a></td></tr>
+            <tr><td><code>CHANNEL_SECRET</code></td><td>LINE webhook verification</td><td>LINE Developers Console → Channel</td></tr>
+            <tr><td><code>CHANNEL_ACCESS_TOKEN</code></td><td>LINE API calls</td><td>LINE Developers Console → Long-lived token</td></tr>
+            <tr><td><code>LINE_GROUP_ID</code></td><td>ส่ง lead ไปกลุ่มไหน</td><td>เชิญ bot เข้า group → ดู webhook log</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Commands</h3>
+        <pre><code class="language-bash"># ทดสอบด้วย ADK Web UI
+adk web --port 8000
+
+# Run LINE webhook
+python line_webhook.py
+
+# Expose ด้วย ngrok
+ngrok http 8000</code></pre>
+
+        <h3>Key Files</h3>
+        <table>
+          <thead>
+            <tr><th>ไฟล์</th><th>แก้เมื่อไหร่</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>intake_agent/agent.py</code></td><td>เปลี่ยน prompt, fields, persona, guardrails</td></tr>
+            <tr><td><code>line_webhook.py</code></td><td>เปลี่ยน webhook behavior, message handling</td></tr>
+            <tr><td><code>tools/line_notify.py</code></td><td>เปลี่ยน notification format/destination</td></tr>
+            <tr><td><code>crane_lead_pipeline/agent.py</code></td><td>เพิ่ม/ลด sub_agents</td></tr>
+            <tr><td><code>.env</code></td><td>เปลี่ยน API keys</td></tr>
+          </tbody>
+        </table>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // Syntax highlighting
+    hljs.highlightAll();
+
+    // Add copy buttons to all code blocks
+    document.querySelectorAll('pre code').forEach(block => {
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'Copy';
+      btn.onclick = () => {
+        navigator.clipboard.writeText(block.textContent).then(() => {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+      };
+      block.parentElement.appendChild(btn);
+    });
+
+    // Lucide icons
+    lucide.createIcons();
+
+    // Sidebar / dark mode
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebarBackdrop').classList.toggle('show');
+    }
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+      const icon = document.getElementById('themeIcon');
+      const isDark = document.documentElement.classList.contains('dark');
+      icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+      lucide.createIcons();
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.addEventListener('DOMContentLoaded', () => {
+        const icon = document.getElementById('themeIcon');
+        if (icon) { icon.setAttribute('data-lucide', 'sun'); lucide.createIcons(); }
+      });
+    }
+
+    // Active TOC link on scroll
+    const tocLinks = document.querySelectorAll('.toc-link');
+    const sections = [];
+    tocLinks.forEach(link => {
+      const id = link.getAttribute('href').replace('#', '');
+      const el = document.getElementById(id);
+      if (el) sections.push({ el, link });
+    });
+
+    window.addEventListener('scroll', () => {
+      let current = sections[0];
+      for (const s of sections) {
+        if (window.scrollY >= s.el.offsetTop - 100) current = s;
+      }
+      tocLinks.forEach(l => l.classList.remove('active'));
+      if (current) current.link.classList.add('active');
+    });
+  </script>
+</body>
+</html>
