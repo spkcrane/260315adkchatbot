@@ -9,6 +9,7 @@ from linebot.v3.messaging import (
     Configuration,
     ApiClient,
     MessagingApi,
+    MessagingApiBlob,
     ReplyMessageRequest,
     TextMessage,
 )
@@ -21,7 +22,8 @@ from linebot.v3.webhooks import (
 from crane_lead_pipeline.agent import root_agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.genai.types import Content, Part
+import google.genai as genai
+from google.genai.types import Content, GenerateContentConfig, Part
 
 load_dotenv()
 
@@ -88,6 +90,55 @@ def show_loading_animation(chat_id: str, seconds: int = 20):
         print(f"[LOADING] error: {e}")
 
 
+def read_business_card(image_bytes: bytes) -> str:
+    """Gemini vision อ่านนามบัตร — คืน structured string หรือ fallback."""
+    VISION_PROMPT = """ภาพนี้เป็นนามบัตรหรือเอกสารติดต่อไหม โปรดอ่านและดึงข้อมูล:
+- ชื่อบริษัท/หน่วยงาน
+- เบอร์โทรศัพท์ (ทุกหมายเลขที่มี)
+- ชื่อผู้ติดต่อ (ถ้ามี)
+- อีเมล (ถ้ามี)
+
+ตอบในรูปแบบนี้เท่านั้น (ถ้าไม่มีให้ใส่ "-"):
+บริษัท: ...
+เบอร์: ...
+ชื่อ: ...
+อีเมล: ...
+
+ถ้าไม่ใช่นามบัตรหรืออ่านไม่ได้ ตอบว่า: ไม่ใช่นามบัตร"""
+
+    try:
+        client = genai.Client()
+        image_part = Part.from_bytes(data=bytes(image_bytes), mime_type="image/jpeg")
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[image_part, VISION_PROMPT],
+            config=GenerateContentConfig(temperature=0.1, max_output_tokens=256),
+        )
+        raw = (response.text or "").strip()
+        print(f"[VISION] OCR: {raw[:200]}")
+
+        if not raw or "ไม่ใช่นามบัตร" in raw:
+            return "[ลูกค้าส่งรูปภาพ]"
+
+        fields = {}
+        for line in raw.splitlines():
+            if ":" in line:
+                key, _, val = line.partition(":")
+                val = val.strip()
+                if val and val != "-":
+                    fields[key.strip()] = val
+
+        if not fields:
+            return "[ลูกค้าส่งรูปภาพ]"
+
+        parts_str = " | ".join(f"{k}: {v}" for k, v in fields.items())
+        return f"[นามบัตร: {parts_str}]"
+
+    except Exception as e:
+        print(f"[VISION] error: {e}")
+        return "[ลูกค้าส่งรูปภาพ]"
+
+
 def get_agent_response(user_message=None, user_id=None):
     if user_id not in user_sessions:
         session = asyncio.run(
@@ -118,6 +169,7 @@ if CHANNEL_SECRET and CHANNEL_SECRET != "YOUR_CHANNEL_SECRET":
     handler = WebhookHandler(CHANNEL_SECRET)
     api_client = ApiClient(configuration)
     messaging_api = MessagingApi(api_client)
+    messaging_api_blob = MessagingApiBlob(api_client)
 
     @app.route("/webhook", methods=["POST"])
     def webhook():
@@ -171,12 +223,17 @@ if CHANNEL_SECRET and CHANNEL_SECRET != "YOUR_CHANNEL_SECRET":
 
     @handler.add(MessageEvent, message=ImageMessageContent)
     def handle_image_message(event):
-        _handle_event(
-            event,
-            agent_text="[ลูกค้าส่งรูปภาพ]",
-            label="[image]",
-            fallback="ขอบคุณสำหรับภาพค่ะ",
-        )
+        message_id = event.message.id
+        agent_text = "[ลูกค้าส่งรูปภาพ]"   # safe default
+
+        try:
+            image_bytes = messaging_api_blob.get_message_content(message_id)
+            agent_text = read_business_card(image_bytes)
+            print(f"[IMAGE] result: {agent_text[:120]}")
+        except Exception as e:
+            print(f"[IMAGE] download failed {message_id}: {e}")
+
+        _handle_event(event, agent_text=agent_text, label="[image]", fallback="ขอบคุณสำหรับภาพค่ะ")
 
     @handler.add(MessageEvent, message=StickerMessageContent)
     def handle_sticker_message(event):
@@ -194,5 +251,7 @@ def root():
 
 
 if __name__ == "__main__":
+    # Cloud Run injects PORT env var; default 8080 for Cloud Run, 8000 for local dev
+    port = int(os.getenv("PORT", "8000"))
     # Note: port 8000 conflicts with 'adk web'. Stop adk web before running this.
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=os.getenv("FLASK_DEBUG", "false").lower() == "true")

@@ -124,7 +124,7 @@ cd spkcrane
 python line_webhook.py
 ```
 
-### 5. Expose with ngrok
+### 5. Expose with ngrok (local dev only)
 
 ```bash
 ngrok http 8000
@@ -135,6 +135,75 @@ Then in LINE Developers console:
 2. Enable "Use webhook"
 3. Click "Verify"
 4. Disable auto-reply in LINE Official Account Manager
+
+### 6. Deploy to Google Cloud Run (Production)
+
+#### Prerequisites
+
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) installed
+- A GCP project with billing enabled
+- Docker (if building locally) or Cloud Build (recommended)
+
+#### Option A: Deploy from source (recommended, no Docker needed locally)
+
+```bash
+cd spkcrane
+
+# First time: set project & enable APIs
+gcloud config set project YOUR_GCP_PROJECT_ID
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com
+
+# Deploy
+gcloud run deploy spkcrane-bot \
+  --source . \
+  --region asia-southeast1 \
+  --allow-unauthenticated \
+  --set-env-vars "GOOGLE_GENAI_USE_VERTEXAI=FALSE" \
+  --set-env-vars "GOOGLE_API_KEY=your_gemini_api_key" \
+  --set-env-vars "CHANNEL_SECRET=your_line_channel_secret" \
+  --set-env-vars "CHANNEL_ACCESS_TOKEN=your_line_access_token" \
+  --set-env-vars "LINE_GROUP_ID=your_team_line_group_id" \
+  --min-instances 0 \
+  --max-instances 3 \
+  --memory 512Mi \
+  --timeout 120
+```
+
+#### Option B: Build & push Docker image manually
+
+```bash
+cd spkcrane
+
+# Build
+docker build -t asia-southeast1-docker.pkg.dev/YOUR_PROJECT/cloud-run-source-deploy/spkcrane-bot .
+
+# Push
+docker push asia-southeast1-docker.pkg.dev/YOUR_PROJECT/cloud-run-source-deploy/spkcrane-bot
+
+# Deploy
+gcloud run deploy spkcrane-bot \
+  --image asia-southeast1-docker.pkg.dev/YOUR_PROJECT/cloud-run-source-deploy/spkcrane-bot \
+  --region asia-southeast1 \
+  --allow-unauthenticated \
+  --set-env-vars "GOOGLE_GENAI_USE_VERTEXAI=FALSE,GOOGLE_API_KEY=xxx,CHANNEL_SECRET=xxx,CHANNEL_ACCESS_TOKEN=xxx,LINE_GROUP_ID=xxx" \
+  --min-instances 0 \
+  --max-instances 3 \
+  --memory 512Mi \
+  --timeout 120
+```
+
+#### After deployment
+
+You will get a permanent URL like `https://spkcrane-bot-xxxxx-as.a.run.app`.
+
+In LINE Developers console:
+1. Set webhook URL to `https://spkcrane-bot-xxxxx-as.a.run.app/webhook`
+2. Enable "Use webhook" ✅
+3. Click "Verify" ✅
+4. Disable auto-reply in LINE Official Account Manager
+
+> **Tip:** Use `--min-instances 1` to avoid cold start delays (~$5-15/month).  
+> **Tip:** Use Secret Manager for production secrets instead of `--set-env-vars`.
 
 ---
 
@@ -202,12 +271,12 @@ Bot:  ขอบคุณสำหรับข้อมูลค่ะ เดี�
 
 ---
 
-## Known Demo Limitations
+## Known Limitations
 
-| Limitation | Impact |
-|------------|--------|
-| **Placeholder credentials** in `.env` | Must replace all `YOUR_*` values before real LINE testing |
-| **In-memory sessions** | Conversation state lost on server restart |
-| **`asyncio.run()` in Flask** | Works for 1-2 concurrent users; not production-ready |
-| **Port 8000 conflict** | `adk web` and `line_webhook.py` both default to port 8000 — stop one before starting the other |
-| **No persistent storage** | Lead data exists only in LINE group message and console logs |
+| Limitation | Impact | Cloud Run Note |
+|------------|--------|----------------|
+| **Placeholder credentials** in `.env` | Must replace all `YOUR_*` values before real LINE testing | Use `--set-env-vars` or Secret Manager |
+| **In-memory sessions** | Conversation state lost on restart/scale | Cloud Run may recycle instances; sessions reset periodically |
+| **`asyncio.run()` in Flask** | Works for low-medium traffic | gunicorn threads=4 handles moderate concurrency |
+| **Port 8000 conflict** | `adk web` and `line_webhook.py` share port 8000 | Cloud Run uses PORT env var (8080); no conflict |
+| **No persistent storage** | Lead data exists only in LINE group message and console logs | Consider Firestore/Cloud SQL for persistence |
